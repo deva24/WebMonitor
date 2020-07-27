@@ -4,7 +4,20 @@ const Diff = require('text-diff');
 const puppeteer = require('puppeteer');
 const { notify } = require('node-notifier');
 
+let fn1 = console.log;
+console.log = function ()
+{
+    let arg1 = [new Date];
+    for (var i = 0; i < arguments.length; i++)
+    {
+        arg1.push(arguments[i]);
+    }
 
+    fn1.apply(this, arg1);
+}
+
+notify('begin observer');
+console.log('begin observer');
 
 if (!fs.existsSync('tmp'))
 {
@@ -270,7 +283,7 @@ let fetcher = (function ()
 {
     let isRunning = false;
 
-    setTimeout(async () =>
+    setInterval(async () =>
     {
         if (isRunning)
             return;
@@ -288,6 +301,6 @@ let fetcher = (function ()
         }
 
 
-    }, 1000);
+    }, 60000);
 
 })();
