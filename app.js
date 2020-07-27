@@ -4,20 +4,8 @@ const Diff = require('text-diff');
 const puppeteer = require('puppeteer');
 const { notify } = require('node-notifier');
 
-let fn1 = console.log;
-console.log = function ()
-{
-    let arg1 = [new Date];
-    for (var i = 0; i < arguments.length; i++)
-    {
-        arg1.push(arguments[i]);
-    }
-
-    fn1.apply(this, arg1);
-}
-
 notify('begin observer');
-console.log('begin observer');
+
 
 if (!fs.existsSync('tmp'))
 {
@@ -156,13 +144,28 @@ let observer = (function ()
 
 let timestamp = (function ()
 {
+    /**@param {number} num
+     * @returns {string}
+     */
+    function pad0(num)
+    {
+        if (num < 10)
+            return '0' + num;
+        else
+            return num.toString();
+    }
+
     return {
         get: function ()
         {
-            return new Date().toISOString()
-                .replace(/T/, ' ')
-                .replace(/\..+/, '')
-                .replace(/:/g, '.');
+            let d1 = new Date();
+            let yy = d1.getFullYear();
+            let mo = pad0(d1.getMonth() + 1);
+            let dd = pad0(d1.getDate());
+            let hh = pad0(d1.getHours());
+            let mi = pad0(d1.getMinutes());
+
+            return yy + '-' + mo + '-' + dd + ' ' + hh + '.' + mi;
         }
     }
 })();
@@ -279,28 +282,38 @@ let fetcher = (function ()
 
 })();
 
-(async () =>
+let fn1 = console.log;
+console.log = function ()
 {
-    let isRunning = false;
-
-    setInterval(async () =>
+    let arg1 = [timestamp.get()];
+    for (var i = 0; i < arguments.length; i++)
     {
-        if (isRunning)
-            return;
+        arg1.push(arguments[i]);
+    }
 
-        if (scheduler.shouldRun())
+    fn1.apply(this, arg1);
+}
+
+
+console.log('begin observer');
+let isRunning = false;
+
+
+setInterval(async () =>
+{
+    if (isRunning)
+        return;
+
+    if (scheduler.shouldRun())
+    {
+        isRunning = true;
+        let didRun = await fetcher.runner();
+
+        if (didRun)
         {
-            isRunning = true;
-            let didRun = await fetcher.runner();
-
-            if (didRun)
-            {
-                scheduler.hasRan();
-            }
-            isRunning = false;
+            scheduler.hasRan();
         }
+        isRunning = false;
+    }
+}, 60000);
 
-
-    }, 60000);
-
-})();
