@@ -108,22 +108,47 @@ let observer = (function ()
                 var diff = new Diff();
                 var textDiff = diff.main(oldTxt, newTxt);
                 let htmlDiff = diff.prettyHtml(textDiff);
+                htmlDiff = htmlDiff.replace(/&lt;/g, '<');
+                htmlDiff = htmlDiff.replace(/&gt;/g, '>');
                 let stampDiffFileName = path.resolve('tmp', id, timestamp.get() + '-diff.html');
+                let tempDiffFileName = path.resolve('tmp', id, 'temp-diff.html');
 
                 fs.unlinkSync(oldFileName);
                 fs.writeFileSync(oldFileName, newTxt);
 
                 htmlDiff = `<style>
-                    ins
-                    {
-                        background:#AAFFAA;
-                    }
-                    del
-                    {
-                        background:#FFAAAA;
-                    }
-                </style>` + htmlDiff;
+                ins
+                {
+                    background:#AAFFAA;
+                }
+                del
+                {
+                    background:#FFAAAA;
+                }
+            </style>
+            <style id='style'>
+                del{display: none;}
+            </style>
+            <script>
+                function showBefore()
+                {
+                    document.getElementById('style').innerText='ins{display:none}'
+                }
+                function showAfter()
+                {
+                    document.getElementById('style').innerText='del{display:none}'
+                }
+            </script>
+            <div>
+                <button onclick='showBefore()'>Before</button>
+                <button onclick="showAfter()">After</button>
+            </div>` + htmlDiff;
                 fs.writeFileSync(stampDiffFileName, htmlDiff);
+
+                if (fs.existsSync(tempDiffFileName))
+                    fs.unlinkSync(tempDiffFileName);
+
+                fs.copyFileSync(stampDiffFileName, tempDiffFileName);
                 return true;
             }
         }
@@ -205,17 +230,29 @@ let fetcher = (function ()
             let changed1 = await observer.notice(txt1, 'vfs-global');
             let changed2 = await observer.notice(txt2, 'vfs-german');
 
+
+
             if (changed1 && !changed2)
             {
-                notify('vfs global changed');
+                notify('vfs global changed', () =>
+                {
+                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-global', 'temp-diff.html'));
+                });
             }
             else if (!changed1 && changed2)
             {
-                notify('vfs german changed');
+                notify('vfs german changed', () =>
+                {
+                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-german', 'temp-diff.html'));
+                });
             }
             else if (changed1 && changed2)
             {
-                notify('vfs global & german has changed');
+                notify('vfs global & german has changed', () =>
+                {
+                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-global', 'temp-diff.html'));
+                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-german', 'temp-diff.html'));
+                });
             }
             await browser.close();
             return true;
