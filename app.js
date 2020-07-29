@@ -108,8 +108,8 @@ let observer = (function ()
                 var diff = new Diff();
                 var textDiff = diff.main(oldTxt, newTxt);
                 let htmlDiff = diff.prettyHtml(textDiff);
-                htmlDiff = htmlDiff.replace(/&lt;/g, '<');
-                htmlDiff = htmlDiff.replace(/&gt;/g, '>');
+                //htmlDiff = htmlDiff.replace(/&lt;/g, '<');
+                //htmlDiff = htmlDiff.replace(/&gt;/g, '>');
                 let stampDiffFileName = path.resolve('tmp', id, timestamp.get() + '-diff.html');
                 let tempDiffFileName = path.resolve('tmp', id, 'temp-diff.html');
 
@@ -201,8 +201,21 @@ let fetcher = (function ()
     {
         try
         {
+
+            const args = [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-infobars',
+                '--window-position=0,0',
+                '--ignore-certifcate-errors',
+                '--ignore-certifcate-errors-spki-list',
+                '--user-agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3312.0 Safari/537.36"'
+            ];
+        
             const browser = await puppeteer.launch({
+                args,
                 headless: true,
+                ignoreHTTPSErrors: true,
                 defaultViewport: {
                     width: 1920,
                     height: 1080
@@ -225,33 +238,40 @@ let fetcher = (function ()
                 return false;
             }
 
+            console.log('fetch embassy website');
+            let txt3 = await getGermanEmbassy(browser);
+
+            if (txt3 === null)
+            {
+                console.log('failed fetching german embassy');
+                return false;
+            }
+
             console.log("fetch successful, observing changes");
 
             let changed1 = await observer.notice(txt1, 'vfs-global');
             let changed2 = await observer.notice(txt2, 'vfs-german');
+            let changed3 = await observer.notice(txt3, 'german-embassy');
 
-
-
-            if (changed1 && !changed2)
+            if (changed1)
             {
                 notify('vfs global changed', () =>
                 {
                     require('child_process').exec('start ' + path.resolve('tmp', 'vfs-global', 'temp-diff.html'));
                 });
             }
-            else if (!changed1 && changed2)
+            if (changed2)
             {
                 notify('vfs german changed', () =>
                 {
                     require('child_process').exec('start ' + path.resolve('tmp', 'vfs-german', 'temp-diff.html'));
                 });
             }
-            else if (changed1 && changed2)
+            if (changed3)
             {
-                notify('vfs global & german has changed', () =>
+                notify('german embassy changed', () =>
                 {
-                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-global', 'temp-diff.html'));
-                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-german', 'temp-diff.html'));
+                    require('child_process').exec('start ' + path.resolve('tmp', 'german-embassy', 'temp-diff.html'));
                 });
             }
             await browser.close();
@@ -307,6 +327,24 @@ let fetcher = (function ()
 
             let news = await page.$eval('.covid_news_display', ele => ele.outerHTML);
             await page.close();
+            return news;
+        } catch (error)
+        {
+
+        }
+        return null;
+    }
+
+    async function getGermanEmbassy(browser)
+    {
+        try
+        {
+            const page = await browser.newPage();
+            await page.goto('https://india.diplo.de/visa');
+            let news = await page.$eval('body', ele => ele.textContent);
+            await page.close();
+
+
             return news;
         } catch (error)
         {
