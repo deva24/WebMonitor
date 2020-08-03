@@ -4,7 +4,7 @@ const Diff = require('text-diff');
 const puppeteer = require('puppeteer');
 const nodeNotifier = require('node-notifier');
 const { notify } = require('node-notifier');
-
+const htmlAwareDiff = require('./htmlparser');
 nodeNotifier.notify('begin observer');
 
 
@@ -149,15 +149,18 @@ let observer = (function ()
                 var diff = new Diff();
                 var textDiff = diff.main(oldTxt, newTxt);
                 let htmlDiff = diff.prettyHtml(textDiff);
+                let expDiff = htmlAwareDiff.default(textDiff);
+
                 //htmlDiff = htmlDiff.replace(/&lt;/g, '<');
                 //htmlDiff = htmlDiff.replace(/&gt;/g, '>');
                 let stampDiffFileName = path.resolve('tmp', id, timestamp.get() + '-diff.html');
                 let tempDiffFileName = path.resolve('tmp', id, 'temp-diff.html');
+                let expDiffFileName = path.resolve('tmp', id, 'exp-diff.html');
 
                 fs.unlinkSync(oldFileName);
                 fs.writeFileSync(oldFileName, newTxt);
 
-                htmlDiff = `<style>
+                let pre = `<style>
                 ins
                 {
                     background:#AAFFAA;
@@ -183,11 +186,18 @@ let observer = (function ()
             <div>
                 <button onclick='showBefore()'>Before</button>
                 <button onclick="showAfter()">After</button>
-            </div>` + htmlDiff;
+            </div>`
+                htmlDiff = pre + htmlDiff;
+                expDiff = pre + expDiff;
+
                 fs.writeFileSync(stampDiffFileName, htmlDiff);
 
                 if (fs.existsSync(tempDiffFileName))
                     fs.unlinkSync(tempDiffFileName);
+
+                if (fs.existsSync(expDiffFileName))
+                    fs.unlinkSync(expDiffFileName);
+                fs.writeFileSync(expDiffFileName, expDiff);
 
                 fs.copyFileSync(stampDiffFileName, tempDiffFileName);
                 return true;
@@ -309,6 +319,7 @@ let fetcher = (function ()
                 notify('vfs global changed', () =>
                 {
                     require('child_process').exec('start ' + path.resolve('tmp', 'vfs-global', 'temp-diff.html'));
+                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-global', 'exp-diff.html'));
                 });
             }
             if (changed2)
@@ -316,6 +327,7 @@ let fetcher = (function ()
                 notify('vfs german changed', () =>
                 {
                     require('child_process').exec('start ' + path.resolve('tmp', 'vfs-german', 'temp-diff.html'));
+                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-german', 'exp-diff.html'));
                 });
             }
             if (changed3)
@@ -323,6 +335,7 @@ let fetcher = (function ()
                 notify('german embassy changed', () =>
                 {
                     require('child_process').exec('start ' + path.resolve('tmp', 'german-embassy', 'temp-diff.html'));
+                    require('child_process').exec('start ' + path.resolve('tmp', 'german-embassy', 'exp-diff.html'));
                 });
             }
             if (changed4)
@@ -330,6 +343,7 @@ let fetcher = (function ()
                 notify('german vfs slot', () =>
                 {
                     require('child_process').exec('start ' + path.resolve('tmp', 'german-vfs-slot', 'temp-diff.html'));
+                    require('child_process').exec('start ' + path.resolve('tmp', 'german-vfs-slot', 'exp-diff.html'));
                 });
             }
             await browser.close();
@@ -609,3 +623,7 @@ setInterval(async () =>
     }
 }, 60000);
 
+process.on('uncaughtException', function (err)
+{
+    console.log('Uncaught exception: ' + err);
+});
