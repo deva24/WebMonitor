@@ -1,0 +1,27 @@
+{
+  "name": "vfschangedetector",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "dependencies": {
+    "canvas": "^2.6.1",
+    "looks-same": "^7.2.3",
+    "node-notifier": "^7.0.2",
+    "puppeteer": "^5.2.1",
+    "text-diff": "^1.0.1"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/deva24/WebMonitor.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/deva24/WebMonitor/issues"
+  },
+  "homepage": "https://github.com/deva24/WebMonitor#readme"
+}
