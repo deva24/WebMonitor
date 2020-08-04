@@ -32,8 +32,8 @@ function tagDifference(txt) {
     prepGraph();
     var acc1 = '';
     txt.forEach(function (element) {
-        var chars = element[0];
-        var highLight = element[1];
+        var chars = element[1];
+        var highLight = element[0];
         for (var i = 0; i < chars.length; i++) {
             var ch = chars.charAt(i);
             graph.parse(ch);

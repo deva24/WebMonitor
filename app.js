@@ -246,7 +246,7 @@ let timestamp = (function ()
     }
 })();
 
-let fetcher = (function ()
+let fetchers = (function ()
 {
     async function runner()
     {
@@ -273,85 +273,86 @@ let fetcher = (function ()
                 }
             });
 
-            console.log('fetch VFS Global');
-            let txt1 = await getVFSGlobal(browser);
-            if (txt1 === null)
-            {
-                console.log('failed fetching VFS Global');
-                return false;
-            }
-
-            console.log('fetch VFS country');
-            let txt2 = await getVFSCountry(browser);
-            if (txt2 === null)
-            {
-                console.log('failed fetching VFS country');
-                return false;
-            }
-
-            console.log('fetch embassy website');
-            let txt3 = await getGermanEmbassy(browser);
-
-            if (txt3 === null)
-            {
-                console.log('failed fetching german embassy');
-                return false;
-            }
-
-            console.log('fetch slots');
-            let txt4 = await getSlots(browser);
-
-            if (txt4 === null)
-            {
-                console.log('failed fetching german embassy');
-                return false;
-            }
-
-            console.log("fetch successful, observing changes");
-
-            let changed1 = await observer.notice(txt1, 'vfs-global');
-            let changed2 = await observer.notice(txt2, 'vfs-german');
-            let changed3 = await observer.notice(txt3, 'german-embassy');
-            let changed4 = await observer.notice(txt4, 'german-vfs-slot');
-
-            if (changed1)
-            {
-                notify('vfs global changed', () =>
+            let fetchers = [
                 {
-                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-global', 'temp-diff.html'));
-                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-global', 'exp-diff.html'));
-                });
-            }
-            if (changed2)
-            {
-                notify('vfs german changed', () =>
+                    id: 'vfs-global',
+                    fn: getVFSGlobal
+                },
                 {
-                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-german', 'temp-diff.html'));
-                    require('child_process').exec('start ' + path.resolve('tmp', 'vfs-german', 'exp-diff.html'));
-                });
-            }
-            if (changed3)
-            {
-                notify('german embassy changed', () =>
+                    id: 'vfs-german',
+                    fn: getVFSCountry
+                },
                 {
-                    require('child_process').exec('start ' + path.resolve('tmp', 'german-embassy', 'temp-diff.html'));
-                    require('child_process').exec('start ' + path.resolve('tmp', 'german-embassy', 'exp-diff.html'));
-                });
-            }
-            if (changed4)
-            {
-                notify('german vfs slot', () =>
+                    id: 'german-embassy',
+                    fn: getGermanEmbassy
+                },
                 {
-                    require('child_process').exec('start ' + path.resolve('tmp', 'german-vfs-slot', 'temp-diff.html'));
-                    require('child_process').exec('start ' + path.resolve('tmp', 'german-vfs-slot', 'exp-diff.html'));
-                });
+                    id: 'german-vfs-slot',
+                    fn: getSlots
+                }
+            ]
+
+            // fetchers = [
+            //     {
+            //         id: 'test',
+            //         fn: (browser) =>
+            //         {
+            //             return new Promise((resolve, reject) =>
+            //             {
+            //                 setTimeout(() =>
+            //                 {
+            //                     resolve('<div>test 3</div><div>test 4</div>');
+            //                 }, 1000);
+            //             })
+            //         }
+            //     }
+            // ];
+
+            //fetch all texts
+            for (let ij = 0; ij < fetchers.length; ij++)
+            {
+                let fetcher = fetchers[ij];
+                console.log('fetching : ' + fetcher.id);
+                let txt1 = await fetcher.fn(browser);
+                if (txt1 === null)
+                    return false;
+                fetcher.result = txt1;
             }
+
+            let isAnyChange = false;
+            let changeTxt = '';
+            //notice all texts
+            for (let ij = 0; ij < fetchers.length; ij++)
+            {
+                let fetcher = fetchers[ij];
+                console.log('observering changes : ' + fetcher.id);
+                let changed1 = observer.notice(fetcher.result, fetcher.id);
+                if (changed1)
+                {
+                    isAnyChange = true;
+                    changeTxt = fetcher.id + ' changed\n';
+                    console.log('🟢 changes found : ' + fetcher.id);
+                    require('child_process').exec('start ' + path.resolve('tmp', fetcher.id, 'temp-diff.html'));
+                    require('child_process').exec('start ' + path.resolve('tmp', fetcher.id, 'exp-diff.html'));
+                }
+                else
+                {
+                    console.log('🔴 no changes : ' + fetcher.id);
+                }
+            }
+
+            if (isAnyChange)
+            {
+                notify(changeTxt);
+                notifyIFTTT(changeTxt);
+            }
+
             await browser.close();
             return true;
 
         } catch (error)
         {
-
+            debugger;
         }
         return false;
     }
@@ -609,7 +610,7 @@ setInterval(async () =>
     if (shouldRun)
     {
         isRunning = true;
-        let didRun = await fetcher.runner();
+        let didRun = await fetchers.runner();
         if (didRun)
         {
             scheduler.hasRan();
@@ -627,3 +628,31 @@ process.on('uncaughtException', function (err)
 {
     console.log('Uncaught exception: ' + err);
 });
+
+function notifyIFTTT(id)
+{
+    const https = require('https');
+    let data = JSON.stringify({
+        value1: id
+    });
+    let req = https.request({
+        hostname: 'maker.ifttt.com',
+        port: 443,
+        path: '/trigger/observer/with/key/MGDKQKiAgIDdzj9ZVSmd7',
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': data.length
+        },
+    }, res =>
+    {
+        let data = '';
+        res.on('data', chunk => { data += chunk });
+        res.on('end', () =>
+        {
+            console.log(data);
+        })
+    })
+    req.write(data);
+    req.end();
+}
