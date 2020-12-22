@@ -6,7 +6,7 @@
   "dependencies": {
     "canvas": "^2.6.1",
     "looks-same": "^7.2.3",
-    "node-notifier": "^7.0.2",
+    "node-notifier": "^8.0.1",
     "puppeteer": "^5.2.1",
     "text-diff": "^1.0.1"
   },
